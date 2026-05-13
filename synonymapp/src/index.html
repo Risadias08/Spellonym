@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spellonym — Synonym Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #fdf8f0;
+      --paper:    #fffcf5;
+      --ink:      #1a1209;
+      --muted:    #8a7a62;
+      --border:   #e8dfc8;
+      --accent:   #5b0303;
+      --accent2:  #3a6b4a;
+      --chip-bg:  #f0e9d8;
+      --shadow:   rgba(26,18,9,0.08);
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem 5rem;
+    }
+
+    /* Subtle paper texture via repeating gradient */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(200,180,140,0.06) 28px, rgba(200,180,140,0.06) 29px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ── */
+    header {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      margin-bottom: 3.5rem;
+      animation: drop 0.7s ease both;
+    }
+
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.8rem, 7vw, 5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      color: var(--ink);
+    }
+
+    .logo em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .tagline {
+      margin-top: 0.5rem;
+      font-size: 0.82rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Search box ── */
+    .search-wrap {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 560px;
+      animation: drop 0.7s ease 0.15s both;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: var(--paper);
+      border: 1.5px solid var(--border);
+      border-radius: 4px;
+      box-shadow: 0 4px 24px var(--shadow);
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-box:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 4px 32px rgba(200,98,42,0.14);
+    }
+
+    #wordInput {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 1rem 1.2rem;
+      font-family: 'Playfair Display', serif;
+      font-size: 1.25rem;
+      color: var(--ink);
+    }
+
+    #wordInput::placeholder { color: var(--border); font-style: italic; }
+
+    #searchBtn {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: 0.82rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0 1.6rem;
+      height: 100%;
+      min-height: 56px;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    #searchBtn:hover { background: #a84e22; }
+    #searchBtn:disabled { background: var(--border); cursor: not-allowed; }
+
+    .hint {
+      margin-top: 0.6rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* ── Card ── */
+    #result {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 560px;
+      margin-top: 2.5rem;
+    }
+
+    .card {
+      background: var(--paper);
+      border: 1.5px solid var(--border);
+      border-radius: 4px;
+      padding: 2rem 2rem 2.4rem;
+      box-shadow: 0 6px 36px var(--shadow);
+      animation: slideUp 0.5s ease both;
+    }
+
+    /* ── Word header ── */
+    .word-header {
+      display: flex;
+      align-items: baseline;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      padding-bottom: 1.2rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.6rem;
+    }
+
+    .word-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    .word-pos {
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      background: rgba(58,107,74,0.1);
+      padding: 0.2rem 0.6rem;
+      border-radius: 2px;
+      font-weight: 500;
+    }
+
+    /* ── Meaning section ── */
+    .section-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+      font-weight: 500;
+    }
+
+    .meaning-text {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--ink);
+      margin-bottom: 1.8rem;
+    }
+
+    .meaning-text.no-def {
+      color: var(--muted);
+      font-style: normal;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+    }
+
+    /* ── Synonyms ── */
+    .synonyms-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .chip {
+      background: var(--chip-bg);
+      color: var(--ink);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.88rem;
+      font-weight: 400;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.15s;
+      animation: popIn 0.3s ease both;
+    }
+
+    .chip:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .chip.score-high { border-left: 3px solid var(--accent2); }
+    .chip.score-mid  { border-left: 3px solid var(--accent); }
+
+    .no-synonyms {
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-style: italic;
+    }
+
+    /* ── States ── */
+    .state-box {
+      text-align: center;
+      padding: 3rem 1rem;
+      animation: slideUp 0.4s ease both;
+    }
+
+    .state-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .state-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      margin-bottom: 0.4rem;
+      color: var(--ink);
+    }
+
+    .state-sub {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    /* Loading dots */
+    .dots span {
+      display: inline-block;
+      width: 8px; height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      margin: 0 3px;
+      animation: bounce 1.2s ease infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    /* ── History ── */
+    #history {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 560px;
+      margin-top: 2rem;
+      animation: drop 0.5s ease both;
+    }
+
+    .history-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.7rem;
+    }
+
+    .history-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .history-chip {
+      font-size: 0.8rem;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.7rem;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .history-chip:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* ── Divider ── */
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: var(--border);
+      margin: 1.6rem 0;
+    }
+
+    /* ── Animations ── */
+    @keyframes drop {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.85); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); }
+      40%            { transform: translateY(-10px); }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .card { padding: 1.4rem 1.2rem 1.8rem; }
+      .word-title { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">Spe<em>llo</em>nym</div>
+    <p class="tagline">Synonyms &amp; Meanings</p>
+  </header>
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <input
+        type="text"
+        id="wordInput"
+        placeholder="Enter a word…"
+        autocomplete="off"
+        spellcheck="false"
+        maxlength="60"
+      />
+      <button id="searchBtn">Search</button>
+    </div>
+    <p class="hint">Press Enter or click Search &mdash; powered by Datamuse &amp; Free Dictionary API</p>
+  </div>
+
+  <div id="result"></div>
+  <div id="history"></div>
+
+  <script>
+    const input     = document.getElementById('wordInput');
+    const btn       = document.getElementById('searchBtn');
+    const resultEl  = document.getElementById('result');
+    const historyEl = document.getElementById('history');
+
+    let searchHistory = JSON.parse(localStorage.getItem('Spellonym_history') || '[]');
+
+    // ── Render history ──────────────────────────────────────────
+    function renderHistory() {
+      if (!searchHistory.length) { historyEl.innerHTML = ''; return; }
+      historyEl.innerHTML = `
+        <p class="history-label">Recent searches</p>
+        <div class="history-chips">
+          ${searchHistory.slice(0, 10).map(w =>
+            `<span class="history-chip" data-word="${w}">${w}</span>`
+          ).join('')}
+        </div>`;
+      historyEl.querySelectorAll('.history-chip').forEach(c =>
+        c.addEventListener('click', () => { input.value = c.dataset.word; doSearch(); })
+      );
+    }
+
+    // ── Save to history ─────────────────────────────────────────
+    function saveHistory(word) {
+      searchHistory = [word, ...searchHistory.filter(w => w !== word)].slice(0, 10);
+      localStorage.setItem('Spellonym_history', JSON.stringify(searchHistory));
+      renderHistory();
+    }
+
+    // ── Show loading ─────────────────────────────────────────────
+    function showLoading() {
+      resultEl.innerHTML = `
+        <div class="card state-box">
+          <div class="dots">
+            <span></span><span></span><span></span>
+          </div>
+          <p class="state-sub" style="margin-top:1rem">Looking up the word…</p>
+        </div>`;
+    }
+
+    // ── Show error ───────────────────────────────────────────────
+    function showError(msg) {
+      resultEl.innerHTML = `
+        <div class="card state-box">
+          <span class="state-icon">📖</span>
+          <p class="state-title">Word not found</p>
+          <p class="state-sub">${msg}</p>
+        </div>`;
+    }
+
+    // ── Main search ──────────────────────────────────────────────
+    async function doSearch() {
+      const word = input.value.trim().toLowerCase();
+      if (!word) return;
+
+      btn.disabled = true;
+      showLoading();
+
+      try {
+        // 1. Meaning from Free Dictionary API
+        const defRes  = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+        const defData = defRes.ok ? await defRes.json() : null;
+
+        // 2. Synonyms from Datamuse API
+        const synRes  = await fetch(`https://api.datamuse.com/words?rel_syn=${encodeURIComponent(word)}&max=30`);
+        const synData = synRes.ok ? await synRes.json() : [];
+
+        // Meaning extraction
+        let meaning   = null;
+        let partOfSpeech = null;
+        if (defData && Array.isArray(defData) && defData[0]?.meanings?.length) {
+          const m = defData[0].meanings[0];
+          partOfSpeech = m.partOfSpeech;
+          meaning = m.definitions[0]?.definition || null;
+        }
+
+        // Synonyms from definition too
+        let allSyns = [...synData];
+        if (defData && Array.isArray(defData)) {
+          defData.forEach(entry => {
+            entry.meanings?.forEach(m => {
+              m.synonyms?.forEach(s => {
+                if (!allSyns.find(x => x.word === s))
+                  allSyns.push({ word: s, score: 900 });
+              });
+            });
+          });
+        }
+
+        // Sort by score desc
+        allSyns.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+        if (!meaning && !allSyns.length) {
+          showError(`"${word}" wasn't found in either dictionary. Try another word.`);
+          btn.disabled = false;
+          return;
+        }
+
+        saveHistory(word);
+        renderCard(word, partOfSpeech, meaning, allSyns);
+
+      } catch (err) {
+        showError('Network error. Please check your connection and try again.');
+      }
+
+      btn.disabled = false;
+    }
+
+    // ── Render result card ───────────────────────────────────────
+    function renderCard(word, pos, meaning, synonyms) {
+      const posTag = pos
+        ? `<span class="word-pos">${pos}</span>`
+        : '';
+
+      const meaningHTML = meaning
+        ? `<p class="section-label">Meaning</p>
+           <p class="meaning-text">${meaning}</p>`
+        : `<p class="section-label">Meaning</p>
+           <p class="meaning-text no-def">No definition found in the dictionary.</p>`;
+
+      const synHTML = synonyms.length
+        ? synonyms.map((s, i) => {
+            const cls = s.score >= 1000 ? 'score-high' : s.score >= 500 ? 'score-mid' : '';
+            const delay = Math.min(i * 30, 400);
+            return `<span class="chip ${cls}" style="animation-delay:${delay}ms" data-word="${s.word}">${s.word}</span>`;
+          }).join('')
+        : `<p class="no-synonyms">No synonyms found.</p>`;
+
+      resultEl.innerHTML = `
+        <div class="card">
+          <div class="word-header">
+            <span class="word-title">${word}</span>
+            ${posTag}
+          </div>
+          ${meaningHTML}
+          <div class="divider"></div>
+          <p class="section-label">Synonyms <span style="color:var(--muted);font-weight:300;text-transform:none;letter-spacing:0">(${synonyms.length} found)</span></p>
+          <div class="synonyms-grid">${synHTML}</div>
+        </div>`;
+
+      // Click synonym chip → search that word
+      resultEl.querySelectorAll('.chip[data-word]').forEach(chip =>
+        chip.addEventListener('click', () => {
+          input.value = chip.dataset.word;
+          doSearch();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        })
+      );
+    }
+
+    // ── Events ───────────────────────────────────────────────────
+    btn.addEventListener('click', doSearch);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+    // Initial render of history
+    renderHistory();
+  </script>
+
+</body>
+</html>
